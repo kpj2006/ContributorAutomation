@@ -16,6 +16,9 @@ from utils import (
     parse_discord_wallet_comment, sanitize_filename, validate_discord_id, validate_wallet_address
 )
 
+# Constants
+GIT_TIMEOUT = 30  # seconds
+
 
 def clone_gist_repo(gist_pat: str) -> str:
     """
@@ -29,28 +32,26 @@ def clone_gist_repo(gist_pat: str) -> str:
     """
     import subprocess
     import tempfile
+    import uuid
     
     config = load_config()
     gist_url = config['gist']['registry_url']
     
-    # Create temp directory
-    temp_dir = os.path.join(tempfile.gettempdir(), 'aossie_gist_repo')
+    # Create unique temp directory to avoid concurrent execution conflicts(due to https://github.com/StabilityNexus/ContributorAutomation/pull/1#discussion_r2678712453)
+    unique_id = str(uuid.uuid4())[:8]
+    temp_dir = os.path.join(tempfile.gettempdir(), f'aossie_gist_repo_{unique_id}')
     
-    # If already exists, pull latest
-    if os.path.exists(temp_dir):
-        try:
-            subprocess.run(['git', '-C', temp_dir, 'pull'], check=True, capture_output=True)
-            return temp_dir
-        except subprocess.CalledProcessError:
-            # If pull fails, remove and re-clone
-            import shutil
-            shutil.rmtree(temp_dir)
-    
-    # Clone fresh
+    # Clone with timeout
     auth_url = gist_url.replace('https://', f'https://{gist_pat}@')
-    subprocess.run(['git', 'clone', auth_url, temp_dir], check=True, capture_output=True)
     
-    return temp_dir
+    try:
+        subprocess.run(['git', 'clone', auth_url, temp_dir], check=True, capture_output=True, timeout=120)
+        return temp_dir
+    except subprocess.CalledProcessError:
+        # Avoid leaking PAT in error message
+        raise RuntimeError("Failed to clone gist repository") from None
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Git clone operation timed out") from None
 
 
 def check_contributor_exists(pr_author: str, gist_pat: str) -> Dict[str, Any]:
@@ -100,12 +101,12 @@ def check_contributor_exists(pr_author: str, gist_pat: str) -> Dict[str, Any]:
             }
     
     except Exception as e:
-        print(f"Error checking contributor: {e}")
-        import traceback
-        traceback.print_exc()
+        error_msg = str(e)
+        print(f"Error checking contributor: {error_msg}")
+        # Note: Sensitive data should already be sanitized by clone_gist_repo
         return {
             'exists': False,
-            'error': str(e)
+            'error': error_msg
         }
 
 
