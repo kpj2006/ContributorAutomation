@@ -83,7 +83,7 @@ def check_contributor_exists(pr_author: str, gist_pat: str) -> Dict[str, Any]:
                 print(f"Files in gist: {files[:10]}")  # Show first 10 files
             
             if os.path.exists(filepath):
-                with open(filepath, 'r') as f:
+                with open(filepath, 'r', encoding='utf-8') as f:
                     toml_data = toml.load(f)
                 
                 return {
