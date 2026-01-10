@@ -16,37 +16,29 @@ from utils import (
     parse_discord_wallet_comment, sanitize_filename, validate_discord_id, validate_wallet_address
 )
 
-# Constants
-GIT_TIMEOUT = 30  # seconds
 
-
-def clone_gist_repo(gist_pat: str) -> str:
+def clone_gist_repo(gist_pat: str, temp_dir: str) -> None:
     """
-    Clone or update Gist repository to temp location.
-    Returns path to local Gist repository.
+    Clone Gist repository to specified temp location.
+    
+    Args:
+        gist_pat: GitHub Personal Access Token for Gist access
+        temp_dir: Path to temporary directory for cloning
     
     Edge cases:
-    - Gist already cloned (pulls latest)
     - Git not available
     - Authentication failure
     """
     import subprocess
-    import tempfile
-    import uuid
     
     config = load_config()
     gist_url = config['gist']['registry_url']
-    
-    # Create unique temp directory to avoid concurrent execution conflicts(due to https://github.com/StabilityNexus/ContributorAutomation/pull/1#discussion_r2678712453)
-    unique_id = str(uuid.uuid4())[:8]
-    temp_dir = os.path.join(tempfile.gettempdir(), f'aossie_gist_repo_{unique_id}')
     
     # Clone with timeout
     auth_url = gist_url.replace('https://', f'https://{gist_pat}@')
     
     try:
         subprocess.run(['git', 'clone', auth_url, temp_dir], check=True, capture_output=True, timeout=120)
-        return temp_dir
     except subprocess.CalledProcessError:
         # Avoid leaking PAT in error message
         raise RuntimeError("Failed to clone gist repository") from None
@@ -66,39 +58,45 @@ def check_contributor_exists(pr_author: str, gist_pat: str) -> Dict[str, Any]:
     Returns:
         Dict with 'exists' bool and 'toml_data' if exists
     """
+    import tempfile
+    
     try:
         print(f"Checking for contributor: {pr_author}")
-        gist_dir = clone_gist_repo(gist_pat)
-        print(f"Gist cloned to: {gist_dir}")
         
-        config = load_config()
-        filename_pattern = config['gist']['contributor_file_pattern']
-        sanitized_username = sanitize_filename(pr_author)
-        filename = filename_pattern.replace('{username}', sanitized_username)
-        
-        filepath = os.path.join(gist_dir, filename)
-        print(f"Looking for file: {filepath}")
-        print(f"File exists: {os.path.exists(filepath)}")
-        
-        # List files in gist directory for debugging
-        if os.path.exists(gist_dir):
-            files = os.listdir(gist_dir)
-            print(f"Files in gist: {files[:10]}")  # Show first 10 files
-        
-        if os.path.exists(filepath):
-            with open(filepath, 'r') as f:
-                toml_data = toml.load(f)
+        # Use context manager for automatic cleanup
+        with tempfile.TemporaryDirectory(prefix='aossie_gist_repo_') as gist_dir:
+            clone_gist_repo(gist_pat, gist_dir)
+            print(f"Gist cloned to: {gist_dir}")
             
-            return {
-                'exists': True,
-                'toml_data': toml_data,
-                'filepath': filepath
-            }
-        else:
-            return {
-                'exists': False,
-                'filepath': filepath
-            }
+            config = load_config()
+            filename_pattern = config['gist']['contributor_file_pattern']
+            sanitized_username = sanitize_filename(pr_author)
+            filename = filename_pattern.replace('{username}', sanitized_username)
+            
+            filepath = os.path.join(gist_dir, filename)
+            print(f"Looking for file: {filepath}")
+            print(f"File exists: {os.path.exists(filepath)}")
+            
+            # List files in gist directory for debugging
+            if os.path.exists(gist_dir):
+                files = os.listdir(gist_dir)
+                print(f"Files in gist: {files[:10]}")  # Show first 10 files
+            
+            if os.path.exists(filepath):
+                with open(filepath, 'r') as f:
+                    toml_data = toml.load(f)
+                
+                return {
+                    'exists': True,
+                    'toml_data': toml_data,
+                    'filepath': filepath
+                }
+            else:
+                return {
+                    'exists': False,
+                    'filepath': filepath
+                }
+        # Temp directory is automatically cleaned up when exiting the context
     
     except Exception as e:
         error_msg = str(e)
@@ -205,7 +203,6 @@ def check_promotion_eligibility(pr_author: str, gist_pat: str) -> Dict[str, Any]
         'exists': True,
         'eligible_for_promotion': eligible,
         'current_role': current_role,
-        'pr_count': total_prs,
         'total_prs': total_prs,
         'avg_lines': avg_lines,
         'discord_id': discord_id,
@@ -225,6 +222,29 @@ def main():
     parser.add_argument('--output-file', default='output.json', help='Output JSON file')
     
     args = parser.parse_args()
+    
+    # Validate required arguments for each action
+    if args.action == 'check_exists':
+        if not args.pr_author:
+            parser.error("--pr-author is required for check_exists action")
+        if not args.gist_pat:
+            parser.error("--gist-pat is required for check_exists action")
+    
+    elif args.action == 'check_response':
+        if not args.repo_name:
+            parser.error("--repo-name is required for check_response action")
+        if not args.pr_number:
+            parser.error("--pr-number is required for check_response action")
+        if not args.pr_author:
+            parser.error("--pr-author is required for check_response action")
+        if not args.github_token:
+            parser.error("--github-token is required for check_response action")
+    
+    elif args.action == 'check_promotion':
+        if not args.pr_author:
+            parser.error("--pr-author is required for check_promotion action")
+        if not args.gist_pat:
+            parser.error("--gist-pat is required for check_promotion action")
     
     try:
         if args.action == 'check_exists':
