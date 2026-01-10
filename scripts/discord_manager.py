@@ -23,7 +23,7 @@ class DiscordManager:
             "Content-Type": "application/json"
         }
     
-    def assign_role(self, guild_id: str, user_id: str, role_id: str) -> bool:
+    def assign_role(self, guild_id: str, user_id: str, role_id: str, max_retries: int = 3) -> bool:
         """
         Assign role to Discord user.
         
@@ -32,6 +32,9 @@ class DiscordManager:
         - Bot missing permissions
         - Rate limiting
         - Invalid IDs
+        
+        Args:
+            max_retries: Maximum number of rate limit retries (default: 3) # to prevent infinite recursion(https://github.com/StabilityNexus/ContributorAutomation/pull/2#discussion_r2678994564)
         """
         try:
             url = f"{self.base_url}/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
@@ -45,7 +48,12 @@ class DiscordManager:
                 print(f"   Make sure the user is a member of the Discord server")
                 return False
             elif response.status_code == 403:
-                error_data = response.json() if response.text else {}
+                # Safe JSON parsing
+                try:
+                    error_data = response.json() if response.text else {}
+                except (ValueError, json.JSONDecodeError):
+                    error_data = {}
+                
                 error_code = error_data.get('code', 'unknown')
                 error_msg = error_data.get('message', 'No details')
                 print(f"✗ Permission denied (403): {error_msg} [Code: {error_code}]")
@@ -57,12 +65,21 @@ class DiscordManager:
                 print(f"   5. Verify Role ID: {role_id}")
                 return False
             elif response.status_code == 429:
-                # Rate limited
-                retry_after = response.json().get('retry_after', 5)
-                print(f"Rate limited. Retry after {retry_after}s")
+                if max_retries <= 0:
+                    print(f"✗ Rate limit exceeded. Max retries reached.")
+                    return False
+                
+                # Safe JSON parsing for retry_after
+                try:
+                    retry_data = response.json() if response.text else {}
+                    retry_after = retry_data.get('retry_after', 5)
+                except (ValueError, json.JSONDecodeError):
+                    retry_after = 5
+                
+                print(f"Rate limited. Retry after {retry_after}s (retries left: {max_retries})")
                 import time
                 time.sleep(retry_after)
-                return self.assign_role(guild_id, user_id, role_id)
+                return self.assign_role(guild_id, user_id, role_id, max_retries - 1)
             else:
                 print(f"✗ Failed: {response.status_code} - {response.text}")
                 return False
@@ -132,8 +149,6 @@ class DiscordManager:
 
 def ask_for_info(repo_name: str, pr_number: int, pr_author: str, github_token: str):  
     """Post comment asking for Discord ID and wallet."""
-    messages = load_error_messages()
-    
     comment = f"""🎉 **Congratulations @{pr_author} on your first contribution!**
 
 To complete your onboarding as an **Apprentice**, please comment exactly:
