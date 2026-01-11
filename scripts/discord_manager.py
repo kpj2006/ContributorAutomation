@@ -58,10 +58,10 @@ class DiscordManager:
                 error_code = error_data.get('code', 'unknown')
                 error_msg = error_data.get('message', 'No details')
                 print(f"✗ Permission denied (403): {error_msg} [Code: {error_code}]")
-                print(f"   Troubleshooting steps:")
-                print(f"   1. Bot needs 'Manage Roles' permission in server")
-                print(f"   2. Bot's role must be ABOVE the role being assigned")
-                print(f"   3. Check role hierarchy in Discord Server Settings → Roles")
+                print("   Troubleshooting steps:")
+                print("   1. Bot needs 'Manage Roles' permission in server")
+                print("   2. Bot's role must be ABOVE the role being assigned")
+                print("   3. Check role hierarchy in Discord Server Settings → Roles")
                 print(f"   4. Verify Guild ID: {guild_id}")
                 print(f"   5. Verify Role ID: {role_id}")
                 return False
@@ -209,7 +209,7 @@ def post_success_message(repo_name: str, pr_number: int, pr_author: str,
 
 def main():
     parser = argparse.ArgumentParser(description='Discord management operations')
-    parser.add_argument('--action', required=True, 
+    parser.add_argument('--action', required=True,                     # only first 2 actions implemented nd left for future draft
                        choices=['ask_info', 'assign_role', 'remove_role', 
                                'post_success', 'post_error', 'announce_good_first_issue',
                                'post_promotion', 'announce_promotion', 'post_assignment_comment',
