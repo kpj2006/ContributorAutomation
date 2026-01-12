@@ -46,7 +46,7 @@ class DiscordManager:
                 return True
             elif response.status_code == 404:
                 print(f"✗ User {user_id} not found in server {guild_id}")
-                print(f"   Make sure the user is a member of the Discord server")
+                print("   Make sure the user is a member of the Discord server")
                 return False
             elif response.status_code == 403:
                 # Safe JSON parsing
@@ -84,9 +84,26 @@ class DiscordManager:
                 print(f"✗ Failed: {response.status_code} - {response.text}")
                 return False
         
-        except Exception as e:
-            print(f"✗ Error assigning role: {e}")
+        except ImportError:
+            # If discord.py is not installed, fallback to generic error handling
+            print("discord.py not installed; cannot catch specific exceptions.")
             return False
+        except Exception as e:
+            # Try to catch only discord.py exceptions if available
+            try:
+                import discord
+                if isinstance(e, getattr(discord, 'Forbidden', type(e))):
+                    print(f"✗ Discord Forbidden error assigning role: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'NotFound', type(e))):
+                    print(f"✗ Discord NotFound error assigning role: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'HTTPException', type(e))):
+                    print(f"✗ Discord HTTPException assigning role: {e}")
+                    return False
+            except ImportError:
+                pass
+            raise
     
     def remove_role(self, guild_id: str, user_id: str, role_id: str) -> bool:  # this for future 
         """Remove role from Discord user."""
@@ -101,9 +118,24 @@ class DiscordManager:
                 print(f"✗ Failed to remove role: {response.status_code}")
                 return False
         
-        except Exception as e:
-            print(f"✗ Error removing role: {e}")
+        except ImportError:
+            print("discord.py not installed; cannot catch specific exceptions.")
             return False
+        except Exception as e:
+            try:
+                import discord
+                if isinstance(e, getattr(discord, 'Forbidden', type(e))):
+                    print(f"✗ Discord Forbidden error removing role: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'NotFound', type(e))):
+                    print(f"✗ Discord NotFound error removing role: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'HTTPException', type(e))):
+                    print(f"✗ Discord HTTPException removing role: {e}")
+                    return False
+            except ImportError:
+                pass
+            raise
     
     def send_channel_message(self, channel_id: str, content: str) -> bool:   # for future
         """Send message to channel."""
@@ -114,9 +146,24 @@ class DiscordManager:
             
             return response.status_code == 200
         
-        except Exception as e:
-            print(f"Error sending channel message: {e}")
+        except ImportError:
+            print("discord.py not installed; cannot catch specific exceptions.")
             return False
+        except Exception as e:
+            try:
+                import discord
+                if isinstance(e, getattr(discord, 'Forbidden', type(e))):
+                    print(f"Discord Forbidden error sending channel message: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'NotFound', type(e))):
+                    print(f"Discord NotFound error sending channel message: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'HTTPException', type(e))):
+                    print(f"Discord HTTPException sending channel message: {e}")
+                    return False
+            except ImportError:
+                pass
+            raise
     
     def send_dm(self, user_id: str, content: str) -> bool:   # for future
         """
@@ -142,9 +189,24 @@ class DiscordManager:
             # Send message
             return self.send_channel_message(channel_id, content)
         
-        except Exception as e:
-            print(f"Error sending DM: {e}")
+        except ImportError:
+            print("discord.py not installed; cannot catch specific exceptions.")
             return False
+        except Exception as e:
+            try:
+                import discord
+                if isinstance(e, getattr(discord, 'Forbidden', type(e))):
+                    print(f"Discord Forbidden error sending DM: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'NotFound', type(e))):
+                    print(f"Discord NotFound error sending DM: {e}")
+                    return False
+                if isinstance(e, getattr(discord, 'HTTPException', type(e))):
+                    print(f"Discord HTTPException sending DM: {e}")
+                    return False
+            except ImportError:
+                pass
+            raise
 
 
 def ask_for_info(repo_name: str, pr_number: int, pr_author: str, github_token: str):  
@@ -169,7 +231,7 @@ wallet: "YOUR_WALLET_ADDRESS"
 
 **Example:**
 ```
-discord: "123456789012345678"
+discord: "000000000000000000"
 wallet: "0x1234567890abcdef1234567890abcdef12345678"
 ```
 
@@ -196,6 +258,7 @@ def post_success_message(repo_name: str, pr_number: int, pr_author: str,
     
     if not template:
         print(f"Warning: No success template found for '{message_type}'")
+        return
     
     message = template.replace('{username}', pr_author)
     
