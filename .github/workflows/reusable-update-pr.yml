@@ -1,0 +1,107 @@
+# Reusable workflow: Update contributor PR count for existing contributors
+name: Update Contributor PR
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'Pull request number'
+        required: true
+        type: number
+      repo_name:
+        description: 'Repository name (owner/repo)'
+        required: true
+        type: string
+      pr_author:
+        description: 'PR author username'
+        required: true
+        type: string
+      pr_title:
+        description: 'PR title'
+        required: true
+        type: string
+      lines_changed:
+        description: 'Total lines changed'
+        required: true
+        type: number
+    secrets:
+      GIST_PAT:
+        required: true
+
+jobs:
+  update_pr:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout automation scripts
+        uses: actions/checkout@v4
+        with:
+          repository: StabilityNexus/ContributorAutomation
+          path: automation
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -r automation/requirements.txt
+      
+      - name: Check if contributor exists
+        id: check
+        env:
+          GIST_PAT: ${{ secrets.GIST_PAT }}
+        run: |
+          cd automation
+          python scripts/contributor_manager.py \
+            --action check_exists \
+            --username "${{ inputs.pr_author }}" \
+            --gist-pat "$GIST_PAT" \
+            --output-file ../check_result.json
+          
+          if [ -f ../check_result.json ]; then
+            EXISTS=$(jq -r '.exists' ../check_result.json)
+            echo "exists=$EXISTS" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Configure Git
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+      
+      - name: Get PR labels
+        if: steps.check.outputs.exists == 'true'
+        id: labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ inputs.pr_number }}
+            });
+            return JSON.stringify(pr.labels.map(l => l.name));
+      
+      - name: Add PR to contributor
+        if: steps.check.outputs.exists == 'true'
+        env:
+          GIST_PAT: ${{ secrets.GIST_PAT }}
+        run: |
+          cd automation
+          python scripts/contributor_manager.py \
+            --action add_pr \
+            --username "${{ inputs.pr_author }}" \
+            --pr-number ${{ inputs.pr_number }} \
+            --repo-name "${{ inputs.repo_name }}" \
+            --pr-title "${{ inputs.pr_title }}" \
+            --lines-changed ${{ inputs.lines_changed }} \
+            --labels '${{ steps.labels.outputs.result }}' \
+            --gist-pat "$GIST_PAT"
+      
+      - name: Not onboarded
+        if: steps.check.outputs.exists == 'false'
+        run: echo "Contributor not yet onboarded"
