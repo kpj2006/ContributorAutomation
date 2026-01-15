@@ -81,7 +81,7 @@ jobs:
             To complete your onboarding, please provide:
             
             1. **Discord User ID** (17-20 digits)
-            2. **Wallet Address** (Ethereum format: 0x...)
+            2. **Wallet Address** (should be non-custodial wallet)
             
             **Format (copy and fill):**
             \`\`\`
