@@ -24,7 +24,7 @@ min_lines_changed = 1
 
 [gist]
 # Central registry Gist URL (update with your Gist)
-registry_url = "https://gist.github.com/540f67330130581c78df3f5282a6e66d.git"
+registry_url = "https://gist.github.com/dcfc0032563b813dc914f7ee5a14af42.git"
 
 # TOML schema version
 schema_version = 1
