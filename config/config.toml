@@ -1,0 +1,33 @@
+# Intermediate Contributor Automation Configuration
+
+[onboarding]
+# Discord ID basic validation
+discord_id_min_length = 17
+discord_id_max_length = 20
+
+# Wallet address basic validation
+wallet_prefix = "0x"
+wallet_length = 42
+
+# Response timeout (days to wait for contributor info)
+response_timeout_days = 7
+
+[tracking]
+# Track PR details
+track_pr_title = true
+track_pr_description = true
+track_lines_changed = true
+track_pr_labels = true
+
+# Minimum lines for PR to count
+min_lines_changed = 1
+
+[gist]
+# Central registry Gist URL (update with your Gist)
+registry_url = "https://gist.github.com/540f67330130581c78df3f5282a6e66d.git"
+
+# TOML schema version
+schema_version = 1
+
+# Contributor file naming pattern
+contributor_file_pattern = "contributor__{username}.toml"
