@@ -85,8 +85,8 @@ jobs:
             
             **Format (copy and fill):**
             \`\`\`
-            discord: "YOUR_DISCORD_ID"
-            wallet: "YOUR_WALLET_ADDRESS"
+            discord: YOUR_DISCORD_ID
+            wallet: YOUR_WALLET_ADDRESS
             \`\`\`
             
             **How to find your Discord ID:**
@@ -95,8 +95,8 @@ jobs:
             
             **Example:**
             \`\`\`
-            discord: "123456789012345678"
-            wallet: "0x1234567890abcdef1234567890abcdef12345678"
+            discord: 123456789012345678
+            wallet: 0x1234567890abcdef1234567890abcdef12345678
             \`\`\``;
             
             await github.rest.issues.createComment({
